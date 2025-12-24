@@ -41,7 +41,7 @@ const getGeeksForGeeksStats = async (username) => {
   const url = `https://practiceapi.geeksforgeeks.org/api/v1/user/problems/submissions/`;
   
   const payload = {
-    handle: "majestymewtwo",
+    handle: username,
     requestType: "getYearwiseUserSubmissions",
     year: String(new Date().getFullYear()),
     month: "",

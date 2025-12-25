@@ -10,8 +10,9 @@ const {
 
 const Profile = require('../models/profile');
 const CACHE_PERIOD = 24 * 60 * 60 * 1000; // 24 hours
-// const CACHE_PERIOD = 60 * 1000;
+// const CACHE_PERIOD = 60 * 1000; // for testing and development
 
+// Get skillrack student data
 router.get("/skillrack", async (req, res) => {
   const profileurl = req.query.profileurl;
   const { status, data } = await generateResponse(
@@ -22,6 +23,7 @@ router.get("/skillrack", async (req, res) => {
   res.status(status).json(data);
 });
 
+// Get codechef student data
 router.get("/codechef/:username", async (req, res) => {
   const username = req.params.username;
   const { status, data } = await generateResponse(
@@ -32,6 +34,7 @@ router.get("/codechef/:username", async (req, res) => {
   res.status(status).json(data);
 });
 
+// Get geeksforgeeks student data
 router.get("/geeksforgeeks/:username", async (req, res) => {
   const username = req.params.username;
   const { status, data } = await generateResponse(
@@ -42,6 +45,7 @@ router.get("/geeksforgeeks/:username", async (req, res) => {
   res.status(status).json(data);
 });
 
+// Get leetcode student data
 router.get("/leetcode/:username", async (req, res) => {
   const username = req.params.username;
   const { status, data } = await generateResponse(
@@ -52,6 +56,7 @@ router.get("/leetcode/:username", async (req, res) => {
   res.status(status).json(data);
 });
 
+// Common function to fetch cached or new data
 const generateResponse = async (payload, fnc, platform) => {
   try {
     const cachedData = await Profile.findOne({

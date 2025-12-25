@@ -158,6 +158,88 @@ const getLeetCodeStats = async (username) => {
   return res.data;
 };
 
+const getNormalizedScore = (platform, data) => {
+    let activity = 0;
+    let difficulty = 0;
+    let achievement = 0;
+
+    switch (platform.toLowerCase()) {
+
+        case "geeksforgeeks":
+            activity = Math.min(data.total_problems_solved / 500, 1);
+
+            difficulty =
+                (data.problems?.Easy ? 0.3 : 0) +
+                (data.problems?.Medium ? 0.5 : 0) +
+                (data.problems?.Hard ? 0.7 : 0);
+
+            achievement = Math.min(
+                parseInt(data.current_rating || 0) / 2000,
+                1
+            );
+            break;
+
+        case "codechef":
+            activity = Math.min(
+                data.stats["PROGRAMS SOLVED"] / 3000,
+                1
+            );
+
+            difficulty =
+                (data.stats.GOLD * 1.0 +
+                 data.stats.SILVER * 0.7 +
+                 data.stats.BRONZE * 0.4) / 2000;
+
+            achievement = Math.min(
+                parseInt(data.stats.RANK) / 2000,
+                1
+            );
+            break;
+
+        case "skillrack":
+            activity = Math.min(data.totalSolved / 600, 1);
+
+            difficulty =
+                (data.easySolved * 0.3 +
+                 data.mediumSolved * 0.6 +
+                 data.hardSolved * 1.0) /
+                (data.totalSolved || 1);
+
+            achievement = Math.min(
+                data.contributionPoint / 5000,
+                1
+            );
+            break;
+
+        case "leetcode":
+            activity = Math.min(data.totalSolved / 2000, 1);
+
+            difficulty =
+                (data.easySolved * 0.3 +
+                 data.mediumSolved * 0.6 +
+                 data.hardSolved * 1.0) /
+                (data.totalSolved || 1);
+
+            // Prefer contest rating; fallback to inverse rank
+            achievement = data.contestRating
+                ? Math.min(data.contestRating / 2500, 1)
+                : Math.min(1 / Math.log10(data.ranking || 1), 1);
+            break;
+
+        default:
+            throw new Error("Unsupported platform");
+    }
+
+    activity = Math.min(Math.max(activity, 0), 1);
+    difficulty = Math.min(Math.max(difficulty, 0), 1);
+    achievement = Math.min(Math.max(achievement, 0), 1);
+
+    const finalScore =
+        (0.5 * activity + 0.3 * difficulty + 0.2 * achievement) * 100;
+
+    return Number(finalScore.toFixed(2));
+};
+
 module.exports = {
   getSkillRackStats,
   getGeeksForGeeksStats,

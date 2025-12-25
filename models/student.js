@@ -21,6 +21,16 @@ const studentSchema = new mongoose.Schema(
       trim: true
     },
 
+    status : {
+      type : String,
+      required : true,
+    },
+
+    profile_pic : {
+      type : String,
+      required : false
+    },
+
     phone_no: {
       type: String,
       required: true,

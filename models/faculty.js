@@ -6,25 +6,30 @@ const facultySchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
-      index: true
+      index: true,
     },
 
     first_name: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
     },
 
     last_name: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
+    },
+
+    password : {
+      type: String,
+      required : true
     },
 
     phone_no: {
       type: String,
       required: true,
-      match: [/^[6-9]\d{9}$/, "Invalid phone number"]
+      match: [/^[6-9]\d{9}$/, "Invalid phone number"],
     },
 
     email_id: {
@@ -32,33 +37,31 @@ const facultySchema = new mongoose.Schema(
       required: true,
       unique: true,
       lowercase: true,
-      trim: true
+      trim: true,
     },
 
-    watchlist: [
-      {
-        type: String,
-        ref: "Student"
-      }
-    ],
-
+    watchlist: {
+      type: [{ type: String, ref: "Student" }],
+      default: [],
+    },
+    
     department_name: {
       type: String,
-      required: true
+      required: true,
     },
 
     college_name: {
       type: String,
-      required: true
+      required: true,
     },
 
     last_login_at: {
       type: Date,
-      default: null
-    }
+      default: null,
+    },
   },
   {
-    timestamps: true
+    timestamps: true,
   }
 );
 

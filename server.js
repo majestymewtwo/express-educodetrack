@@ -14,9 +14,12 @@ const DB_COLL = process.env.DB_COLL;
 const DB_AUTH = process.env.DB_AUTH;
 const DB_URL = `mongodb://${DB_USER}:${DB_PSWD}@${DB_HOST}:${DB_PORT}/${DB_COLL}?authSource=${DB_AUTH}`;
 
+const authRouter = require("./routes/auth");
 const profileRouter = require("./routes/profile");
 
-app.use("/api", profileRouter);
+app.use(express.json());
+app.use("/api/auth", authRouter);
+app.use("/api/track", profileRouter);
 
 const serverStartup = async () => {
   try {

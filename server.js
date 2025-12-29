@@ -1,8 +1,7 @@
 const express = require("express");
 const app = express();
 const mongoose = require("mongoose");
-const dotenv = require('dotenv');
-dotenv.config();
+require('dotenv').config({ quiet: true });
 
 const PORT = process.env.PORT;
 const HOST = process.env.HOST;
@@ -16,10 +15,12 @@ const DB_URL = `mongodb://${DB_USER}:${DB_PSWD}@${DB_HOST}:${DB_PORT}/${DB_COLL}
 
 const authRouter = require("./routes/auth");
 const profileRouter = require("./routes/profile");
+const facultyRouter = require("./routes/faculty");
 
 app.use(express.json());
 app.use("/api/auth", authRouter);
 app.use("/api/track", profileRouter);
+app.use("/api/faculty", facultyRouter);
 
 const serverStartup = async () => {
   try {

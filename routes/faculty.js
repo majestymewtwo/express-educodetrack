@@ -1,8 +1,12 @@
 const express = require('express');
 const router = express.Router();
 
+const authFilter = require('../utils/middleware');
+
 // Add student details and create account
-router.post('/create-student', async (req, res) => {});
+router.post('/create-student', authFilter, async (req, res) => {
+    res.send("This works");
+});
 
 
 // Get passout_year-wise and department-wise student distribution

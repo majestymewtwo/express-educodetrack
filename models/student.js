@@ -23,7 +23,8 @@ const studentSchema = new mongoose.Schema(
 
     status : {
       type : String,
-      required : true,
+      required : false,
+      default : ""
     },
 
     profile_pic : {

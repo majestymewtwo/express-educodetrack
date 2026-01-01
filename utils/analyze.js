@@ -1,6 +1,8 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 
+const Profile = require('../models/profile');
+
 const getSkillRackStats = async (url) => {
   let data;
   try {
@@ -36,26 +38,43 @@ const getSkillRackStats = async (url) => {
 };
 
 const getGeeksForGeeksStats = async (username) => {
-  let problemData, submissionData;
-  
+  let problemData, submissionData = [];
+
   const url = `https://practiceapi.geeksforgeeks.org/api/v1/user/problems/submissions/`;
-  
-  const payload = {
-    handle: username,
-    requestType: "getYearwiseUserSubmissions",
-    year: String(new Date().getFullYear()),
-    month: "",
-  };
-  try {
-    submissionData = (await axios.post(url, payload)).data;
-  } catch (err) {
-    console.error("Failed to fetch geeksforgeeks submission details");
-    console.error(err);
-    return;
+
+  const currentYear = new Date().getFullYear();
+  const yearsToFetch = [currentYear, currentYear - 1];
+
+  // Fetch submissions for both years
+  for (const year of yearsToFetch) {
+    const payload = {
+      handle: username,
+      requestType: "getYearwiseUserSubmissions",
+      year: String(year),
+      month: "",
+    };
+
+    try {
+      const response = await axios.post(url, payload);
+      submissionData.push({
+        year,
+        data: response.data
+      });
+    } catch (err) {
+      console.error(`Failed to fetch GFG submission data for year ${year}`);
+      console.error(err);
+    }
   }
 
-  payload.requestType = "";
+  // Fetch problem stats (unchanged)
   try {
+    const payload = {
+      handle: username,
+      requestType: "",
+      year: "",
+      month: "",
+    };
+
     problemData = (await axios.post(url, payload)).data;
   } catch (err) {
     console.error("Failed to fetch geeksforgeeks problem details");
@@ -68,6 +87,7 @@ const getGeeksForGeeksStats = async (username) => {
     submission: submissionData,
   };
 };
+
 
 const getCodeChefStats = async (username) => {
   const url = `https://www.codechef.com/users/${username}`;
@@ -240,9 +260,82 @@ const getNormalizedScore = (platform, data) => {
     return Number(finalScore.toFixed(2));
 };
 
+// Common function to fetch cached or new data
+const generateResponse = async (payload, fnc, platform) => {
+  try {
+    const cachedData = await Profile.findOne({
+      platformName: platform,
+      userPayload: payload,
+    });
+
+    const today2AMIST = getToday2AMIST();
+
+    if (
+      !cachedData ||
+      cachedData.fetchedAt < today2AMIST
+    ) {
+      const freshData = await fnc(payload);
+
+      await Profile.findOneAndUpdate(
+        {
+          platformName: platform,
+          userPayload: payload,
+        },
+        {
+          platformName: platform,
+          userPayload: payload,
+          fetchedAt: new Date(),
+          data: freshData,
+        },
+        { upsert: true, new: true }
+      );
+
+      console.log(`Cache refreshed for ${platform}/${payload}`);
+
+      return {
+        status: 200,
+        data: freshData,
+      };
+    }
+
+    console.log(`Cached data valid for ${platform}/${payload}`);
+
+    return {
+      status: 200,
+      data: cachedData.data,
+    };
+  } catch (err) {
+    console.error(err);
+
+    return {
+      status: 500,
+      data: {
+        message: `An error occurred while fetching ${platform} data`,
+      },
+    };
+  }
+};
+
+const getToday2AMIST = () => {
+  const now = new Date();
+
+  // Convert to IST
+  const istOffset = 5.5 * 60 * 60 * 1000;
+  const istNow = new Date(now.getTime() + istOffset);
+
+  // Set to today 2:00 AM IST
+  istNow.setHours(2, 0, 0, 0);
+
+  // Convert back to UTC
+  return new Date(istNow.getTime() - istOffset);
+};
+
+
 module.exports = {
   getSkillRackStats,
   getGeeksForGeeksStats,
   getCodeChefStats,
   getLeetCodeStats,
+  getNormalizedScore,
+  generateResponse
 };

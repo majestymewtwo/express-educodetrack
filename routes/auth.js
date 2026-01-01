@@ -2,9 +2,18 @@ const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const router = express.Router();
-const { clean, isValidLength, isValidEmail } = require("../utils/helper");
+const {
+  clean,
+  isValidLength,
+  isValidEmail,
+  generateCode,
+} = require("../utils/helper");
 
 const Faculty = require("../models/faculty");
+const Student = require("../models/student");
+const Otp = require("../models/otp");
+
+const OTP_VALIDITY = 5 * 60 * 1000;
 
 router.post("/register-faculty", async (req, res) => {
   const data = req.body;
@@ -183,6 +192,117 @@ router.post("/login-faculty", async (req, res) => {
 });
 
 // Authentication must be OTP for email or phone
-router.post("/login-student", async (req, res) => {});
+router.post("/generate-student-otp", async (req, res) => {
+  const { email_id } = req.body;
+
+  if (!email_id) {
+    return res.status(400).json({
+      message: "Email required",
+    });
+  }
+
+  if (!isValidEmail(email_id)) {
+    return res.status(400).json({
+      message: "Invalid email format",
+    });
+  }
+
+  if (!Student.findOne({ email_id })) {
+    return res.status(404).json({
+      message: `No student found with ${email_id}`,
+    });
+  }
+
+  try {
+    const otpCode = generateCode();
+
+    console.log("Generated random code: " + otpCode);
+
+    const newOtp = new Otp({
+      code: "0000",
+      email_id,
+    });
+
+    // Send OTP code here
+
+    await newOtp.save();
+
+    res.json({
+      message: `OTP sent to ${email_id}`,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      message: "An error occured",
+    });
+  }
+});
+
+router.post("/validate-student-otp", async (req, res) => {
+  const { email_id, otp_code } = req.body;
+
+  if (!email_id) {
+    return res.status(400).json({
+      message: "Email required",
+    });
+  }
+
+  if (!otp_code) {
+    return res.status(400).json({
+      message: "OTP required",
+    });
+  }
+
+  if (!isValidEmail(email_id)) {
+    return res.status(400).json({
+      message: "Invalid email format",
+    });
+  }
+
+  try {
+    const generatedOtp = await Otp.findOne({
+      code: otp_code,
+      email_id,
+    });
+
+    if (!generatedOtp) {
+      res.status(401).json({
+        message: "Invalid otp",
+      });
+    }
+
+    const student = await Student.findOne({
+      email_id,
+    });
+
+    const token = jwt.sign(
+      {
+        student_id: student.student_id,
+        email_id,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: process.env.JWT_EXPIRES_IN || "7d",
+      }
+    );
+
+    return res.status(200).json({
+      token,
+      student: {
+        student_id: student.student_id,
+        first_name: student.first_name,
+        last_name: student.last_name,
+        email_id: student.email_id,
+        department_name: student.department_name,
+        college_name: student.college_name,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      message: "An error occured",
+    });
+  }
+});
 
 module.exports = router;

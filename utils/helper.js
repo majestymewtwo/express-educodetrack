@@ -11,10 +11,15 @@ const isValidLength = (value, min, max) => {
 const isValidEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
-}
+};
+
+const generateCode = () => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
 
 module.exports = {
   clean,
   isValidLength,
-  isValidEmail
+  isValidEmail,
+  generateCode,
 };

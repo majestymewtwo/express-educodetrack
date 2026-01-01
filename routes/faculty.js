@@ -5,10 +5,8 @@ const Student = require("../models/student");
 
 const { clean, isValidLength, isValidEmail } = require("../utils/helper");
 
-const authFilter = require("../utils/middleware");
-
 // Add student details and create account
-router.post("/create-student", authFilter, async (req, res) => {
+router.post("/create-student", async (req, res) => {
   const {
     student_id,
     first_name,
@@ -117,7 +115,27 @@ router.post("/create-student", authFilter, async (req, res) => {
 });
 
 // Get passout_year-wise and department-wise student distribution
-router.get("/college-stats/:passout_year", async (req, res) => {});
+router.get("/college-stats/:passout_year", async (req, res) => {
+  const passout_year = req.params.passout_year;
+  try {
+    const data = {};
+    const students = await Student.find({
+      passout_year,
+    });
+    students.forEach((studentData) => {
+      if (!data[studentData.department_name]) {
+        data[studentData.department_name] = [];
+      }
+      data[studentData.department_name].push(studentData);
+    });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({
+      message: "An error occured",
+    });
+  }
+});
+
 // Get last 2 batches of passed out students data (placed or not placed)
 router.get("/passed-out-stats", async (req, res) => {});
 // Get AI insights for student performance (1. insights and 2. suggestions)

@@ -8,6 +8,7 @@ const {
   isValidEmail,
   generateCode,
 } = require("../utils/helper");
+const { sendEmail } = require("../utils/email");
 
 const Faculty = require("../models/faculty");
 const Student = require("../models/student");
@@ -196,44 +197,45 @@ router.post("/generate-student-otp", async (req, res) => {
   const { email_id } = req.body;
 
   if (!email_id) {
-    return res.status(400).json({
-      message: "Email required",
-    });
+    return res.status(400).json({ message: "Email required" });
   }
 
   if (!isValidEmail(email_id)) {
-    return res.status(400).json({
-      message: "Invalid email format",
-    });
-  }
-
-  if (!Student.findOne({ email_id })) {
-    return res.status(404).json({
-      message: `No student found with ${email_id}`,
-    });
+    return res.status(400).json({ message: "Invalid email format" });
   }
 
   try {
-    const otpCode = generateCode();
+    const student = await Student.findOne({ email_id });
 
-    console.log("Generated random code: " + otpCode);
+    if (!student) {
+      return res.status(404).json({
+        message: `No student found with ${email_id}`,
+      });
+    }
 
-    const newOtp = new Otp({
-      code: "0000",
-      email_id,
-    });
+    const otpCode = String(generateCode());
+    const otpHash = await bcrypt.hash(otpCode, 10);
 
-    // Send OTP code here
 
-    await newOtp.save();
+    await Otp.findOneAndUpdate(
+      { email_id },
+      {
+        code: otpHash,
+        email_id,
+        createdAt: new Date(),
+      },
+      { upsert: true }
+    );
 
-    res.json({
+    await sendEmail(email_id, otpCode, OTP_VALIDITY);
+
+    return res.json({
       message: `OTP sent to ${email_id}`,
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({
-      message: "An error occured",
+    return res.status(500).json({
+      message: "An error occurred",
     });
   }
 });
@@ -241,15 +243,9 @@ router.post("/generate-student-otp", async (req, res) => {
 router.post("/validate-student-otp", async (req, res) => {
   const { email_id, otp_code } = req.body;
 
-  if (!email_id) {
+  if (!email_id || !otp_code) {
     return res.status(400).json({
-      message: "Email required",
-    });
-  }
-
-  if (!otp_code) {
-    return res.status(400).json({
-      message: "OTP required",
+      message: "Email and OTP required",
     });
   }
 
@@ -260,25 +256,46 @@ router.post("/validate-student-otp", async (req, res) => {
   }
 
   try {
-    const generatedOtp = await Otp.findOne({
-      code: otp_code,
-      email_id,
-    });
+    const generatedOtp = await Otp.findOne({ email_id });
 
     if (!generatedOtp) {
-      res.status(401).json({
-        message: "Invalid otp",
+      return res.status(401).json({
+        message: "Invalid or expired OTP",
       });
     }
 
-    const student = await Student.findOne({
-      email_id,
-    });
+    if (Date.now() - generatedOtp.createdAt.getTime() > OTP_VALIDITY) {
+      await generatedOtp.deleteOne();
+      return res.status(401).json({
+        message: "OTP has expired",
+      });
+    }
+
+    const isValidOtp = await bcrypt.compare(
+      String(otp_code),
+      generatedOtp.code
+    );
+
+    if (!isValidOtp) {
+      return res.status(401).json({
+        message: "Invalid OTP",
+      });
+    }
+
+    const student = await Student.findOne({ email_id });
+
+    if (!student) {
+      return res.status(404).json({
+        message: "Student not found",
+      });
+    }
+
+    await Otp.deleteMany({ email_id });
 
     const token = jwt.sign(
       {
         student_id: student.student_id,
-        email_id,
+        email_id: student.email_id,
       },
       process.env.JWT_SECRET,
       {
@@ -299,10 +316,11 @@ router.post("/validate-student-otp", async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({
-      message: "An error occured",
+    return res.status(500).json({
+      message: "An error occurred",
     });
   }
 });
+
 
 module.exports = router;

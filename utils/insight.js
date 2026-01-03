@@ -104,4 +104,5 @@ async function analyzeCodingPlatformDataStudent(userData) {
 
 module.exports = {
   analyzeCodingPlatformDataFaculty,
+  analyzeCodingPlatformDataStudent
 };

@@ -1,7 +1,13 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 
-const Profile = require('../models/profile');
+const Profile = require("../models/profile");
+const Insight = require("../models/insight");
+
+const {
+  analyzeCodingPlatformDataFaculty,
+  analyzeCodingPlatformDataStudent,
+} = require("./insight");
 
 const getSkillRackStats = async (url) => {
   let data;
@@ -38,7 +44,8 @@ const getSkillRackStats = async (url) => {
 };
 
 const getGeeksForGeeksStats = async (username) => {
-  let problemData, submissionData = [];
+  let problemData,
+    submissionData = [];
 
   const url = `https://practiceapi.geeksforgeeks.org/api/v1/user/problems/submissions/`;
 
@@ -58,7 +65,7 @@ const getGeeksForGeeksStats = async (username) => {
       const response = await axios.post(url, payload);
       submissionData.push({
         year,
-        data: response.data
+        data: response.data,
       });
     } catch (err) {
       console.error(`Failed to fetch GFG submission data for year ${year}`);
@@ -87,7 +94,6 @@ const getGeeksForGeeksStats = async (username) => {
     submission: submissionData,
   };
 };
-
 
 const getCodeChefStats = async (username) => {
   const url = `https://www.codechef.com/users/${username}`;
@@ -179,85 +185,73 @@ const getLeetCodeStats = async (username) => {
 };
 
 const getNormalizedScore = (platform, data) => {
-    let activity = 0;
-    let difficulty = 0;
-    let achievement = 0;
+  let activity = 0;
+  let difficulty = 0;
+  let achievement = 0;
 
-    switch (platform.toLowerCase()) {
+  switch (platform.toLowerCase()) {
+    case "geeksforgeeks":
+      activity = Math.min(data.total_problems_solved / 500, 1);
 
-        case "geeksforgeeks":
-            activity = Math.min(data.total_problems_solved / 500, 1);
+      difficulty =
+        (data.problems?.Easy ? 0.3 : 0) +
+        (data.problems?.Medium ? 0.5 : 0) +
+        (data.problems?.Hard ? 0.7 : 0);
 
-            difficulty =
-                (data.problems?.Easy ? 0.3 : 0) +
-                (data.problems?.Medium ? 0.5 : 0) +
-                (data.problems?.Hard ? 0.7 : 0);
+      achievement = Math.min(parseInt(data.current_rating || 0) / 2000, 1);
+      break;
 
-            achievement = Math.min(
-                parseInt(data.current_rating || 0) / 2000,
-                1
-            );
-            break;
+    case "codechef":
+      activity = Math.min(data.stats["PROGRAMS SOLVED"] / 3000, 1);
 
-        case "codechef":
-            activity = Math.min(
-                data.stats["PROGRAMS SOLVED"] / 3000,
-                1
-            );
+      difficulty =
+        (data.stats.GOLD * 1.0 +
+          data.stats.SILVER * 0.7 +
+          data.stats.BRONZE * 0.4) /
+        2000;
 
-            difficulty =
-                (data.stats.GOLD * 1.0 +
-                 data.stats.SILVER * 0.7 +
-                 data.stats.BRONZE * 0.4) / 2000;
+      achievement = Math.min(parseInt(data.stats.RANK) / 2000, 1);
+      break;
 
-            achievement = Math.min(
-                parseInt(data.stats.RANK) / 2000,
-                1
-            );
-            break;
+    case "skillrack":
+      activity = Math.min(data.totalSolved / 600, 1);
 
-        case "skillrack":
-            activity = Math.min(data.totalSolved / 600, 1);
+      difficulty =
+        (data.easySolved * 0.3 +
+          data.mediumSolved * 0.6 +
+          data.hardSolved * 1.0) /
+        (data.totalSolved || 1);
 
-            difficulty =
-                (data.easySolved * 0.3 +
-                 data.mediumSolved * 0.6 +
-                 data.hardSolved * 1.0) /
-                (data.totalSolved || 1);
+      achievement = Math.min(data.contributionPoint / 5000, 1);
+      break;
 
-            achievement = Math.min(
-                data.contributionPoint / 5000,
-                1
-            );
-            break;
+    case "leetcode":
+      activity = Math.min(data.totalSolved / 2000, 1);
 
-        case "leetcode":
-            activity = Math.min(data.totalSolved / 2000, 1);
+      difficulty =
+        (data.easySolved * 0.3 +
+          data.mediumSolved * 0.6 +
+          data.hardSolved * 1.0) /
+        (data.totalSolved || 1);
 
-            difficulty =
-                (data.easySolved * 0.3 +
-                 data.mediumSolved * 0.6 +
-                 data.hardSolved * 1.0) /
-                (data.totalSolved || 1);
+      // Prefer contest rating; fallback to inverse rank
+      achievement = data.contestRating
+        ? Math.min(data.contestRating / 2500, 1)
+        : Math.min(1 / Math.log10(data.ranking || 1), 1);
+      break;
 
-            // Prefer contest rating; fallback to inverse rank
-            achievement = data.contestRating
-                ? Math.min(data.contestRating / 2500, 1)
-                : Math.min(1 / Math.log10(data.ranking || 1), 1);
-            break;
+    default:
+      throw new Error("Unsupported platform");
+  }
 
-        default:
-            throw new Error("Unsupported platform");
-    }
+  activity = Math.min(Math.max(activity, 0), 1);
+  difficulty = Math.min(Math.max(difficulty, 0), 1);
+  achievement = Math.min(Math.max(achievement, 0), 1);
 
-    activity = Math.min(Math.max(activity, 0), 1);
-    difficulty = Math.min(Math.max(difficulty, 0), 1);
-    achievement = Math.min(Math.max(achievement, 0), 1);
+  const finalScore =
+    (0.5 * activity + 0.3 * difficulty + 0.2 * achievement) * 100;
 
-    const finalScore =
-        (0.5 * activity + 0.3 * difficulty + 0.2 * achievement) * 100;
-
-    return Number(finalScore.toFixed(2));
+  return Number(finalScore.toFixed(2));
 };
 
 // Common function to fetch cached or new data
@@ -270,10 +264,7 @@ const generateResponse = async (payload, fnc, platform) => {
 
     const today2AMIST = getToday2AMIST();
 
-    if (
-      !cachedData ||
-      cachedData.fetchedAt < today2AMIST
-    ) {
+    if (!cachedData || cachedData.fetchedAt < today2AMIST) {
       const freshData = await fnc(payload);
 
       await Profile.findOneAndUpdate(
@@ -330,6 +321,89 @@ const getToday2AMIST = () => {
   return new Date(istNow.getTime() - istOffset);
 };
 
+const getLLMInsights = async (username, platform, isFaculty) => {
+  try {
+    const cachedData = await Insight.findOne({
+      username,
+      platform,
+      isFaculty,
+    });
+
+    let data = null;
+
+    if (platform === "leetcode") {
+      data = await generateResponse(username, getLeetCodeStats, platform);
+    } else if (platform === "codechef") {
+      data = await generateResponse(username, getCodeChefStats, platform);
+    } else if (platform === "skillrack") {
+      data = await generateResponse(username, getSkillRackStats, platform);
+    } else if (platform === "geeksforgeeks") {
+      data = await generateResponse(username, getGeeksForGeeksStats, platform);
+    } else {
+      return {
+        status: 400,
+        data: {
+          message: "Invalid platform",
+        },
+      };
+    }
+
+    if (data.status !== 200) {
+      return data;
+    }
+
+    data = data.data;
+
+    const today2AMIST = getToday2AMIST();
+
+    if (!cachedData || cachedData.fetchedAt < today2AMIST) {
+      let freshData = "";
+
+      if (isFaculty) {
+        freshData = await analyzeCodingPlatformDataFaculty(data);
+      } else {
+        freshData = await analyzeCodingPlatformDataStudent(data);
+      }
+
+      try {
+        await Insight.findOneAndUpdate(
+          { username, platform, isFaculty },
+          { data: freshData, username, platform, isFaculty },
+          { upsert: true, new: true }
+        );
+      } catch (err) {
+        console.error(err);
+
+        return {
+          status: 500,
+          data: { message: "An error occured while fetching insights" },
+        };
+      }
+
+      console.log(`Cache updated for insight ${platform}/${username}`);
+
+      return {
+        status: 200,
+        data: { insight: freshData },
+      };
+    }
+
+    console.log(`Cache found for insight ${platform}/${username}`);
+
+    return {
+      status: 200,
+      data: { insight: cachedData.data },
+    };
+  } catch (err) {
+    console.error(err);
+    return {
+      status: 500,
+      data: {
+        message: "An error occured while fetching insights",
+      },
+    };
+  }
+};
 
 module.exports = {
   getSkillRackStats,
@@ -337,5 +411,6 @@ module.exports = {
   getCodeChefStats,
   getLeetCodeStats,
   getNormalizedScore,
-  generateResponse
+  generateResponse,
+  getLLMInsights,
 };

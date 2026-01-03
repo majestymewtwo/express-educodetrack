@@ -5,6 +5,8 @@ const Student = require("../models/student");
 
 const { clean, isValidLength, isValidEmail } = require("../utils/helper");
 
+const { getLLMInsights } = require("../utils/analyze");
+
 // Add student details and create account
 router.post("/create-student", async (req, res) => {
   const {
@@ -138,8 +140,19 @@ router.get("/college-stats/:passout_year", async (req, res) => {
 
 // Get last 2 batches of passed out students data (placed or not placed)
 router.get("/passed-out-stats", async (req, res) => {});
-// Get AI insights for student performance (1. insights and 2. suggestions)
-router.get("/analyze-student", async (req, res) => {});
+
+// Get AI insights for student performance
+router.get("/analyze-student", async (req, res) => {
+  const { platform, payload } = req.query;
+  if (!platform || !payload) {
+    res.status(400).json({
+      message: "Please provide all required parameters",
+    });
+  }
+  const { status, data } = await getLLMInsights(payload, platform, true);
+  res.status(status).json(data);
+});
+
 // Get leaderboard of students grouped by their passout_year through the normalization formula
 router.get("/student-leaderboard/:passout_year", async (req, res) => {});
 

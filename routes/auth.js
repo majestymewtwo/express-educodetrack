@@ -303,6 +303,9 @@ router.post("/validate-student-otp", async (req, res) => {
       }
     );
 
+    student.last_login_at = new Date();
+    await student.save();
+
     return res.status(200).json({
       token,
       student: {

@@ -35,6 +35,7 @@ const studentSchema = new mongoose.Schema(
     phone_no: {
       type: String,
       required: true,
+      unique: true,
       match: [/^[6-9]\d{9}$/, "Invalid phone number"]
     },
 
@@ -74,6 +75,16 @@ const studentSchema = new mongoose.Schema(
     faculty_mentor_id: {
       type: String,
       ref: "Faculty",
+      default: null
+    },
+
+    platform_details : {
+      type: mongoose.Schema.Types.Mixed,
+      default: null
+    },
+
+    placed_details : {
+      type : mongoose.Schema.Types.Mixed,
       default: null
     }
   },

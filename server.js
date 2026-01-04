@@ -18,11 +18,13 @@ const authFilter = require("./utils/middleware");
 const authRouter = require("./routes/auth");
 const profileRouter = require("./routes/profile");
 const facultyRouter = require("./routes/faculty");
+const studentRouter = require("./routes/student");
 
 app.use(express.json());
 app.use("/api/auth", authRouter);
 app.use("/api/track", authFilter, profileRouter);
 app.use("/api/faculty", authFilter, facultyRouter);
+app.use("/api/student", authFilter, studentRouter);
 
 const serverStartup = async () => {
   try {

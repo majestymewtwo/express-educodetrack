@@ -310,12 +310,17 @@ const generateResponse = async (payload, fnc, platform) => {
 const getToday2AMIST = () => {
   const now = new Date();
 
-  // Convert to IST
+  // IST offset
   const istOffset = 5.5 * 60 * 60 * 1000;
   const istNow = new Date(now.getTime() + istOffset);
 
-  // Set to today 2:00 AM IST
+  // Set to 2 AM IST today
   istNow.setHours(2, 0, 0, 0);
+
+  // If current IST time is before 2 AM, go back one day
+  if (new Date(now.getTime() + istOffset) < istNow) {
+    istNow.setDate(istNow.getDate() - 1);
+  }
 
   // Convert back to UTC
   return new Date(istNow.getTime() - istOffset);

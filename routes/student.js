@@ -74,7 +74,7 @@ router.put("/update-details", async (req, res) => {
 
   try {
     const student = await Student.findOne({
-      email: req.user.email_id,
+      email: req.user.email,
     });
 
     if (!student) {

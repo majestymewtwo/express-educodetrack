@@ -1,9 +1,8 @@
 const { OpenAI } = require("openai");
 
-require('dotenv').config();
+require("dotenv").config();
 
 const HUGGING_FACE_API_KEY = process.env.HF_API_KEY;
-
 
 const client = new OpenAI({
   baseURL: "https://router.huggingface.co/v1",
@@ -27,7 +26,7 @@ async function analyzeCodingPlatformDataFaculty(userData) {
     Your answer must not be in markdown, it must be plaintext string. `;
 
     const chatCompletion = await client.chat.completions.create({
-      model: "meta-llama/Llama-3.1-8B-Instruct:nebius",
+      model: "meta-llama/Llama-3.3-70B-Instruct",
       messages: [
         {
           role: "system",
@@ -74,9 +73,8 @@ async function analyzeCodingPlatformDataStudent(userData) {
     Your answer must be a plaintext string (not markdown) and should leave the student feeling 
     confident, proud, and excited to continue learning.`;
 
-
     const chatCompletion = await client.chat.completions.create({
-      model: "meta-llama/Llama-3.1-8B-Instruct:nebius",
+      model: "meta-llama/Llama-3.3-70B-Instruct",
       messages: [
         {
           role: "system",
@@ -104,5 +102,5 @@ async function analyzeCodingPlatformDataStudent(userData) {
 
 module.exports = {
   analyzeCodingPlatformDataFaculty,
-  analyzeCodingPlatformDataStudent
+  analyzeCodingPlatformDataStudent,
 };

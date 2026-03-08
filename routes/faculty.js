@@ -278,7 +278,49 @@ router.get("/student-leaderboard/:passout_year", async (req, res) => {
 
 // Add a student to watchlist
 router.put("/add-watchlist", async (req, res) => {});
+
 // Edit student details
-router.put("/update-student", async (req, res) => {});
+router.put("/update-student", async (req, res) => {
+  try {
+    const { student_id, is_placed } = req.body;
+
+    // Basic validation to ensure we know who to update
+    if (!student_id) {
+      return res.status(400).json({ 
+        message: "student_id is required" 
+      });
+    }
+
+    if (typeof is_placed === 'undefined') {
+      return res.status(400).json({ 
+        message: "is_placed status is required" 
+      });
+    }
+
+    // Find the student and update only the is_placed field
+    const updatedStudent = await Student.findOneAndUpdate(
+      { student_id: student_id },
+      { $set: { is_placed: is_placed } },
+      { new: true } // Returns the newly updated document
+    );
+
+    if (!updatedStudent) {
+      return res.status(404).json({ 
+        message: "Student not found" 
+      });
+    }
+
+    return res.status(200).json({
+      message: "Student placement status updated successfully",
+      data: updatedStudent
+    });
+
+  } catch (err) {
+    console.error("Update Student Error:", err);
+    return res.status(500).json({
+      message: "An error occurred while updating the student details"
+    });
+  }
+});
 
 module.exports = router;

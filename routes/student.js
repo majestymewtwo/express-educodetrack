@@ -69,11 +69,11 @@ router.put("/update-details", async (req, res) => {
 
   if (
     is_placed &&
-    placed_details &&
-    (!placed_details.company_name ||
+    (!placed_details ||
+      !placed_details.company_name ||
       !placed_details.role_name ||
-      !placed_details.role_description ||
-      !placed_details.compensation)
+      !placed_details.company_type ||
+      !placed_details.annual_compensation)
   ) {
     return res.status(400).json({
       message: "Provide all required placement details",

@@ -148,7 +148,7 @@ const getCodeChefStats = async (username) => {
   }
 
   const problemsSolved = $("h3").filter((_, el) =>
-    $(el).text().includes("Total Problems Solved")
+    $(el).text().includes("Total Problems Solved"),
   );
   if (problemsSolved.length) {
     stats.total_problems_solved = problemsSolved
@@ -185,78 +185,123 @@ const getLeetCodeStats = async (username) => {
 };
 
 const getNormalizedScore = (platform, data) => {
+  if (!data) return 0;
+
   let activity = 0;
   let difficulty = 0;
   let achievement = 0;
 
+  // Safe parsing helper
+  const safeInt = (val) => parseInt(val) || 0;
+
   switch (platform.toLowerCase()) {
-    case "geeksforgeeks":
-      activity = Math.min(data.total_problems_solved / 500, 1);
+    case "geeksforgeeks": {
+      // Based on your provided GFG JSON
+      const totalSolved = data.problems?.count || 0;
+      
+      const easy = Object.keys(data.problems?.result?.Easy || {}).length;
+      const medium = Object.keys(data.problems?.result?.Medium || {}).length;
+      const hard = Object.keys(data.problems?.result?.Hard || {}).length;
+      const diffTotal = easy + medium + hard;
 
-      difficulty =
-        (data.problems?.Easy ? 0.3 : 0) +
-        (data.problems?.Medium ? 0.5 : 0) +
-        (data.problems?.Hard ? 0.7 : 0);
+      // Activity: 500 problems is maxed out
+      activity = totalSolved / 500;
+      
+      // Difficulty: Weighted average of problem complexities
+      difficulty = diffTotal > 0 
+        ? (easy * 0.3 + medium * 0.6 + hard * 1.0) / diffTotal 
+        : 0;
 
-      achievement = Math.min(parseInt(data.current_rating || 0) / 2000, 1);
+      // Achievement: GFG data doesn't provide a competitive rating in this JSON, 
+      // so we evaluate achievement based on long-term consistency (submissions/problems).
+      achievement = totalSolved / 800;
       break;
+    }
 
-    case "codechef":
-      activity = Math.min(data.stats["PROGRAMS SOLVED"] / 3000, 1);
+    case "codechef": {
+      // Based on your provided CodeChef JSON
+      const totalSolved = safeInt(data.total_problems_solved);
+      const rating = safeInt(data.current_rating); // Parses "1249?i..." cleanly
+      
+      // Extract stars (e.g., "3★" -> 3, "★" -> 1)
+      const starMatch = (data.stars || "").match(/(\d+)?★/);
+      const stars = starMatch ? (safeInt(starMatch[1]) || 1) : 0;
 
-      difficulty =
-        (data.stats.GOLD * 1.0 +
-          data.stats.SILVER * 0.7 +
-          data.stats.BRONZE * 0.4) /
-        2000;
-
-      achievement = Math.min(parseInt(data.stats.RANK) / 2000, 1);
+      // Activity: 400 problems is maxed out
+      activity = totalSolved / 400;
+      
+      // Difficulty: Base it on CodeChef stars (5 stars = 1.0)
+      difficulty = stars / 5;
+      
+      // Achievement: Competitive rating (2500 is maxed out)
+      achievement = rating / 2500;
       break;
+    }
 
-    case "skillrack":
-      activity = Math.min(data.totalSolved / 600, 1);
+    case "skillrack": {
+      // Based on your provided SkillRack JSON
+      const totalSolved = safeInt(data.stats?.["PROGRAMS SOLVED"]);
+      const gold = safeInt(data.stats?.GOLD);
+      const silver = safeInt(data.stats?.SILVER);
+      const bronze = safeInt(data.stats?.BRONZE);
+      const totalMedals = gold + silver + bronze;
+      const certs = safeInt(data.total_certificates_count);
 
-      difficulty =
-        (data.easySolved * 0.3 +
-          data.mediumSolved * 0.6 +
-          data.hardSolved * 1.0) /
-        (data.totalSolved || 1);
-
-      achievement = Math.min(data.contributionPoint / 5000, 1);
+      // Activity: 3000 problems maxed out (Skillrack inflates problem counts)
+      activity = totalSolved / 3000;
+      
+      // Difficulty: Ratio of high-tier medals
+      difficulty = totalMedals > 0 
+        ? (bronze * 0.3 + silver * 0.6 + gold * 1.0) / totalMedals 
+        : 0;
+        
+      // Achievement: Based on earned certificates
+      achievement = certs / 30;
       break;
+    }
 
-    case "leetcode":
-      activity = Math.min(data.totalSolved / 2000, 1);
+    case "leetcode": {
+      // Standard Leetcode API mapping assumption
+      const totalSolved = safeInt(data.totalSolved);
+      const easy = safeInt(data.easySolved);
+      const medium = safeInt(data.mediumSolved);
+      const hard = safeInt(data.hardSolved);
+      
+      activity = totalSolved / 500;
+      
+      difficulty = totalSolved > 0 
+        ? (easy * 0.3 + medium * 0.6 + hard * 1.0) / totalSolved 
+        : 0;
 
-      difficulty =
-        (data.easySolved * 0.3 +
-          data.mediumSolved * 0.6 +
-          data.hardSolved * 1.0) /
-        (data.totalSolved || 1);
-
-      // Prefer contest rating; fallback to inverse rank
+      // Prefer contest rating; fallback to inverse rank calculation
       achievement = data.contestRating
-        ? Math.min(data.contestRating / 2500, 1)
-        : Math.min(1 / Math.log10(data.ranking || 1), 1);
+        ? safeInt(data.contestRating) / 2500
+        : (data.ranking ? (1 / Math.log10(data.ranking || 10)) : 0);
       break;
+    }
 
     default:
-      throw new Error("Unsupported platform");
+      console.warn(`Unsupported platform for scoring: ${platform}`);
+      return 0;
   }
 
+  // Clamp all values tightly between 0.0 and 1.0 so no single platform breaks the scale
   activity = Math.min(Math.max(activity, 0), 1);
   difficulty = Math.min(Math.max(difficulty, 0), 1);
   achievement = Math.min(Math.max(achievement, 0), 1);
 
-  const finalScore =
-    (0.5 * activity + 0.3 * difficulty + 0.2 * achievement) * 100;
+  // Blend into a final score (e.g., 40% Volume, 40% Difficulty, 20% Competitive Rank)
+  const finalScore = (0.4 * activity + 0.4 * difficulty + 0.2 * achievement) * 100;
 
-  return Number(finalScore.toFixed(2));
+  // Return safely formatted number, fallback to 0 if NaN
+  return Number(finalScore.toFixed(2)) || 0;
 };
 
 // Common function to fetch cached or new data
 const generateResponse = async (payload, fnc, platform) => {
   try {
+    if (!payload) return { status: 400, message: "Payload is not valid" };
+    
     const cachedData = await Profile.findOne({
       platformName: platform,
       userPayload: payload,
@@ -264,7 +309,7 @@ const generateResponse = async (payload, fnc, platform) => {
 
     const today2AMIST = getToday2AMIST();
 
-    if (!cachedData || cachedData.fetchedAt < today2AMIST) {
+    if (!payload || !cachedData || cachedData.fetchedAt < today2AMIST) {
       const freshData = await fnc(payload);
 
       await Profile.findOneAndUpdate(
@@ -278,7 +323,7 @@ const generateResponse = async (payload, fnc, platform) => {
           fetchedAt: new Date(),
           data: freshData,
         },
-        { upsert: true, new: true }
+        { upsert: true, new: true },
       );
 
       console.log(`Cache refreshed for ${platform}/${payload}`);
@@ -374,7 +419,7 @@ const getLLMInsights = async (username, platform, isFaculty) => {
         await Insight.findOneAndUpdate(
           { username, platform, isFaculty },
           { data: freshData, username, platform, isFaculty },
-          { upsert: true, new: true }
+          { upsert: true, new: true },
         );
       } catch (err) {
         console.error(err);

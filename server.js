@@ -9,10 +9,9 @@ app.use(cors());
 const PORT = process.env.PORT;
 const HOST = process.env.HOST;
 const DB_HOST = process.env.DB_HOST;
-const DB_PORT = process.env.DB_PORT;
-const DB_COLL = process.env.DB_COLL;
-const DB_AUTH = process.env.DB_AUTH;
-const DB_URL = `mongodb://${DB_HOST}:${DB_PORT}/${DB_COLL}?authSource=${DB_AUTH}`;
+const DB_USER = process.env.DB_USER;
+const DB_PSWD = process.env.DB_PSWD;
+const DB_URL = `mongodb+srv://${DB_USER}:${encodeURIComponent(DB_PSWD)}@${DB_HOST}/educodetrack`;
 
 const authFilter = require("./utils/middleware");
 

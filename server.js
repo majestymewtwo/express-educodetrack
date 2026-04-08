@@ -1,10 +1,14 @@
 const express = require("express");
-const cors = require('cors');
+const cors = require("cors");
 const mongoose = require("mongoose");
-require('dotenv').config({ quiet: true });
+require("dotenv").config({ quiet: true });
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: "*",
+  }),
+);
 
 const PORT = process.env.PORT;
 const HOST = process.env.HOST;
@@ -28,7 +32,6 @@ app.use("/api/student", authFilter, studentRouter);
 
 const serverStartup = async () => {
   try {
-    
     const conn = await mongoose.connect(DB_URL, {
       serverSelectionTimeoutMS: 5000,
     });
